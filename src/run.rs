@@ -65,10 +65,20 @@ pub fn shellify(cmd: &str, shell: Shell) -> String {
     out
 }
 
-fn which(prog: &str) -> bool {
-    std::env::var_os("PATH").is_some_and(|p| {
-        std::env::split_paths(&p).any(|d| d.join(prog).is_file() || d.join(format!("{prog}.exe")).is_file())
-    })
+/// bash to run placeholder commands with. On Windows skip the WSL launcher in System32/WindowsApps
+/// (it is not Git Bash and may have no distro installed).
+pub fn find_bash() -> Option<std::path::PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    let mut dirs: Vec<std::path::PathBuf> = std::env::split_paths(&path).collect();
+    if cfg!(windows) {
+        dirs.push(r"C:\Program Files\Git\bin".into());
+    }
+    dirs.into_iter()
+        .flat_map(|d| [d.join("bash"), d.join("bash.exe")])
+        .find(|p| {
+            let l = p.to_string_lossy().to_ascii_lowercase();
+            p.is_file() && !(cfg!(windows) && (l.contains("\\system32\\") || l.contains("windowsapps")))
+        })
 }
 
 pub fn in_agent() -> &'static str {
@@ -195,12 +205,10 @@ pub fn run(args: &[String]) -> Result<i32, String> {
     }
 
     let mut cmd = if let Some(sc) = &shell_cmd {
-        let (prog, flag, shell) = if which("bash") {
-            ("bash", "-c", Shell::Posix)
-        } else if cfg!(windows) {
-            ("powershell", "-Command", Shell::PowerShell)
-        } else {
-            ("sh", "-c", Shell::Posix)
+        let (prog, flag, shell) = match find_bash() {
+            Some(b) => (b, "-c", Shell::Posix),
+            None if cfg!(windows) => ("powershell".into(), "-Command", Shell::PowerShell),
+            None => ("sh".into(), "-c", Shell::Posix),
         };
         let mut c = Command::new(prog);
         c.arg(flag).arg(shellify(sc, shell));
@@ -280,7 +288,8 @@ mod tests {
     #[test]
     fn shellify_runs_in_bash() {
         let cmd = shellify("printf '%s|' '{{lock:A}}' \"{{lock:A}}\" {{lock:A}}", Shell::Posix);
-        let out = Command::new("bash").arg("-c").arg(cmd).env("__HL_A", "va l'\"ue").output().unwrap();
+        let Some(bash) = find_bash() else { return }; // e.g. Windows without Git Bash
+        let out = Command::new(bash).arg("-c").arg(cmd).env("__HL_A", "va l'\"ue").output().unwrap();
         assert_eq!(String::from_utf8(out.stdout).unwrap(), "va l'\"ue|va l'\"ue|va l'\"ue|");
     }
 }

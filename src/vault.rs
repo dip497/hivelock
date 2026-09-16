@@ -188,7 +188,15 @@ impl Store {
             *k = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).map_err(|_| "key file malformed")?;
         }
         let _lock = if lock {
-            let f = private_open(&dir.join("lock"), true).map_err(|e| e.to_string())?;
+            // not append-only: Windows LockFileEx rejects append-only handles
+            let mut o = OpenOptions::new();
+            o.write(true).create(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                o.mode(0o600);
+            }
+            let f = o.open(dir.join("lock")).map_err(|e| e.to_string())?;
             f.lock().map_err(|e| e.to_string())?;
             Some(f)
         } else {
