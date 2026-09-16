@@ -1,7 +1,7 @@
 //! Small full-screen manager. Reads the vault for the list; every action shells out to the
 //! regular `hivelock` subcommands so behavior (and prompts) stay identical to the CLI.
 use crate::vault::{now, Entry, Store};
-use crossterm::cursor::{Hide, MoveTo, Show};
+use crossterm::cursor::{Hide, MoveTo, MoveToColumn, MoveUp, Show};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use crossterm::style::{Attribute, Print, SetAttribute};
 use crossterm::terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
@@ -192,4 +192,116 @@ fn main_loop() -> io::Result<()> {
         }
         list = entries();
     }
+}
+
+const AGENT_LABELS: &[(&str, &str, &[&str])] = &[
+    ("claude", "Claude Code", &["claude"]),
+    ("codex", "Codex", &["codex"]),
+    ("copilot", "GitHub Copilot CLI", &["copilot"]),
+    ("gemini", "Gemini CLI", &["gemini"]),
+    ("cursor", "Cursor", &["cursor-agent", "cursor"]),
+    ("qwen", "Qwen Code", &["qwen"]),
+];
+
+fn on_path(bin: &str) -> bool {
+    std::env::var_os("PATH").is_some_and(|p| {
+        std::env::split_paths(&p).any(|d| ["", ".exe", ".cmd"].iter().any(|ext| d.join(format!("{bin}{ext}")).is_file()))
+    })
+}
+
+fn found(agent: &str, bins: &[&str]) -> bool {
+    bins.iter().any(|b| on_path(b)) || crate::scrub::agent_dir(agent).is_dir()
+}
+
+/// Interactive multi-select (all ticked by default). None = cancelled.
+fn pick_agents(found: &[bool]) -> io::Result<Option<Vec<bool>>> {
+    let mut on = vec![true; AGENT_LABELS.len()];
+    let mut cur = 0;
+    let rows = AGENT_LABELS.len() as u16 + 2;
+    let mut out = io::stdout();
+    terminal::enable_raw_mode()?;
+    execute!(out, Hide)?;
+    let draw = |out: &mut io::Stdout, on: &[bool], cur: usize, first: bool| -> io::Result<()> {
+        if !first {
+            queue!(out, MoveUp(rows), MoveToColumn(0))?;
+        }
+        queue!(out, Clear(ClearType::FromCursorDown), Print("Which agents should hivelock protect?\r\n"))?;
+        for (i, (_, label, _)) in AGENT_LABELS.iter().enumerate() {
+            let mark = if on[i] { "[x]" } else { "[ ]" };
+            let state = if found[i] { "found" } else { "not found" };
+            let line = format!("{} {mark} {label:<20} {state}\r\n", if i == cur { ">" } else { " " });
+            if i == cur {
+                queue!(out, SetAttribute(Attribute::Bold), Print(line), SetAttribute(Attribute::Reset))?;
+            } else {
+                queue!(out, Print(line))?;
+            }
+        }
+        queue!(out, SetAttribute(Attribute::Dim), Print("↑↓ move · space toggle · a all · enter install · esc skip"), SetAttribute(Attribute::Reset))?;
+        out.flush()
+    };
+    draw(&mut out, &on, cur, true)?;
+    let result = loop {
+        let Event::Key(KeyEvent { code, kind: KeyEventKind::Press, .. }) = event::read()? else { continue };
+        match code {
+            KeyCode::Up | KeyCode::Char('k') => cur = cur.checked_sub(1).unwrap_or(on.len() - 1),
+            KeyCode::Down | KeyCode::Char('j') | KeyCode::Tab => cur = (cur + 1) % on.len(),
+            KeyCode::Char(' ') => on[cur] = !on[cur],
+            KeyCode::Char('a') => {
+                let all = on.iter().all(|x| *x);
+                on.iter_mut().for_each(|x| *x = !all);
+            }
+            KeyCode::Enter => break Some(on.clone()),
+            KeyCode::Esc | KeyCode::Char('q') => break None,
+            _ => {}
+        }
+        draw(&mut out, &on, cur, false)?;
+    };
+    terminal::disable_raw_mode()?;
+    execute!(out, Show, Print("\r\n"))?;
+    Ok(result)
+}
+
+/// `hivelock setup [--all | --agents a,b]`: first-run onboarding.
+pub fn setup(args: &[String]) -> Result<i32, String> {
+    use std::io::IsTerminal;
+    let found: Vec<bool> = AGENT_LABELS.iter().map(|(a, _, bins)| found(a, bins)).collect();
+    let flag = |f: &str| args.iter().position(|a| a == f);
+    let chosen: Vec<bool> = if let Some(i) = flag("--agents") {
+        let list = args.get(i + 1).ok_or("--agents needs a list, e.g. claude,codex")?;
+        AGENT_LABELS.iter().map(|(a, _, _)| list.split(',').any(|x| x.trim() == *a)).collect()
+    } else if flag("--all").is_some() {
+        vec![true; AGENT_LABELS.len()]
+    } else if io::stdin().is_terminal() && io::stdout().is_terminal() {
+        match pick_agents(&found).map_err(|e| e.to_string())? {
+            Some(c) => c,
+            None => {
+                println!("skipped. run `hivelock setup` any time.");
+                return Ok(0);
+            }
+        }
+    } else {
+        println!("run `hivelock setup` in a terminal, or `hivelock setup --all` / `--agents claude,codex`");
+        return Ok(0);
+    };
+
+    if Store::init()? {
+        println!("created your vault in {}", crate::vault::data_dir().display());
+    }
+    let mut failed = 0;
+    for ((agent, label, _), _) in AGENT_LABELS.iter().zip(&chosen).filter(|(_, c)| **c) {
+        match crate::install::install(agent) {
+            Ok(()) => {}
+            Err(e) => {
+                failed += 1;
+                println!("  {label}: {e}");
+            }
+        }
+    }
+    if chosen.iter().any(|c| *c) {
+        println!("\ndone. restart your agents, then just work: paste a secret and hivelock holds it back.");
+        println!("move existing secrets in with `hivelock import .env`; `hivelock doctor` checks everything.");
+    } else {
+        println!("no agents selected. run `hivelock setup` any time.");
+    }
+    Ok(if failed > 0 { 1 } else { 0 })
 }

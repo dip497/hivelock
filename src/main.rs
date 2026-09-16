@@ -19,6 +19,7 @@ pub const HELP: &str = "hivelock — local secret locker for AI coding agents
 agents see names ({{lock:NAME}}), never values. run `hivelock` alone for the manager UI.
 
 setup
+  setup [--all|--agents a,b]   pick agents to protect (runs after install)
   init                         create vault + key
   install <agent>              add hooks: claude codex gemini qwen copilot cursor
   uninstall <agent>            remove hooks
@@ -105,6 +106,10 @@ fn passphrase(store: &Store, why: &str) -> Result<String, String> {
 
 fn dispatch(args: &[String]) -> Result<i32, String> {
     let Some(cmd) = args.first().map(String::as_str) else {
+        use std::io::IsTerminal;
+        if !Store::initialized() && std::io::stdout().is_terminal() {
+            return tui::setup(&[]); // first run: onboarding
+        }
         tui::run().map_err(|e| e.to_string())?;
         return Ok(0);
     };
@@ -117,6 +122,7 @@ fn dispatch(args: &[String]) -> Result<i32, String> {
             let created = Store::init()?;
             println!("{} {}", if created { "created vault in" } else { "vault already exists in" }, vault::data_dir().display());
         }
+        "setup" => return tui::setup(rest),
         "install" => install::install(positional(rest, 0)?)?,
         "uninstall" => install::uninstall(positional(rest, 0)?)?,
         "add" => {

@@ -6,16 +6,24 @@ hivelock stops that. Paste a secret and the message is held back before it's sen
 
 ## Install
 
-Download a binary from [Releases](https://github.com/dip497/hivelock/releases) and put it on your `PATH`, or:
+macOS, Linux, WSL:
 
 ```sh
-cargo install --git https://github.com/dip497/hivelock
+curl -fsSL https://raw.githubusercontent.com/dip497/hivelock/main/install.sh | sh
 ```
+
+Windows (cmd or PowerShell):
+
+```bat
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/dip497/hivelock/main/install.ps1 | iex"
+```
+
+No Rust needed. The installer downloads the binary for your machine, checks it, and then asks which agents to protect (all are ticked by default). You can also grab a binary from [Releases](https://github.com/dip497/hivelock/releases) or build it with `cargo install --git https://github.com/dip497/hivelock`.
 
 ## Use
 
 ```sh
-hivelock install claude    # or: codex, copilot, gemini, cursor, qwen
+hivelock setup             # pick agents again any time
 hivelock import .env       # move existing secrets into the vault
 hivelock doctor            # check that it's working
 ```

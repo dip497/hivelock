@@ -1,0 +1,50 @@
+name: install
+on:
+  workflow_dispatch:
+  workflow_call:
+env:
+  HIVELOCK_NO_SETUP: "1"
+  HIVELOCK_NO_CLIPBOARD: "1"
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh install.sh
+      - name: works
+        run: |
+          export PATH="$HOME/.local/bin:$PATH" HIVELOCK_HOME="$RUNNER_TEMP/vault"
+          hivelock --version
+          hivelock setup --agents claude,codex
+          t="ghp""_aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3zA5"   # split so secret scanners ignore this fake token
+          echo "{\"prompt\":\"use $t please\"}" | hivelock hook claude prompt | grep -q '"block"'
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: powershell
+        shell: pwsh
+        run: ./install.ps1
+      - name: cmd
+        shell: cmd
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1
+      - name: git bash
+        shell: bash
+        env:
+          HIVELOCK_INSTALL_PS1: install.ps1
+        run: sh install.sh
+      - name: works
+        shell: pwsh
+        run: |
+          $env:HIVELOCK_HOME = "$env:RUNNER_TEMP\vault"
+          $exe = "$env:LOCALAPPDATA\Programs\hivelock\hivelock.exe"
+          & $exe --version
+          & $exe setup --agents claude,codex
+          if ($LASTEXITCODE) { throw "setup failed" }
+          $t = 'ghp' + '_aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3zA5'   # split so secret scanners ignore this fake token
+          $out = "{""prompt"":""use $t please""}" | & $exe hook claude prompt
+          if ($out -notmatch '"block"') { throw "hook did not block: $out" }

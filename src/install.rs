@@ -201,12 +201,12 @@ pub fn install(agent: &str) -> Result<(), String> {
         std::fs::create_dir_all(rules_path.parent().unwrap()).map_err(|e| e.to_string())?;
         std::fs::write(&rules_path, rules).map_err(|e| e.to_string())?;
     }
-    println!("installed hivelock hooks for {agent} in {}", path.display());
+    println!("  ✓ {agent}: hooks added to {}", path.display());
     match agent {
-        "codex" => println!("next: open Codex and run /hooks to review and trust the hivelock hooks (Codex skips untrusted hooks)"),
-        "qwen" => println!("note: qwen support is experimental (not verified against a live qwen-code)"),
-        "cursor" => println!("note: cursor hooks can block pasted secrets and inject secrets, but cannot hide shell output from the model"),
-        _ => println!("restart running {agent} sessions to load the hooks"),
+        "codex" => println!("    open Codex and run /hooks once to trust them"),
+        "qwen" => println!("    qwen support is experimental"),
+        "cursor" => println!("    cursor can't hide shell output from the model; secrets there are captured and scrubbed"),
+        _ => {}
     }
     Ok(())
 }

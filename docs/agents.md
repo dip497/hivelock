@@ -1,6 +1,6 @@
 # Agents
 
-`hivelock install <agent>` adds hooks to the agent's user config and backs up the file first. `hivelock uninstall <agent>` removes only what was added.
+`hivelock setup` (or `hivelock install <agent>`) adds hooks to the agent's user config and backs up the file first. `hivelock uninstall <agent>` removes only what was added.
 
 | Agent | Pasted secret | Placeholders in commands | Output masked | `ask` |
 |---|---|---|---|---|
