@@ -20,6 +20,25 @@ fn ago(ts: u64) -> String {
     if d == 0 { "today".into() } else { format!("{d}d") }
 }
 
+/// Pad or cut at the end (names, lines): the start is what tells entries apart.
+fn fit_end(s: &str, w: usize) -> String {
+    if s.chars().count() <= w {
+        format!("{s:<w$}")
+    } else {
+        let head: String = s.chars().take(w.saturating_sub(1)).collect();
+        format!("{head}…")
+    }
+}
+
+fn short_scope(scope: &str) -> String {
+    let home = crate::vault::home().display().to_string();
+    match scope.strip_prefix(&home) {
+        Some(rest) if !home.is_empty() => format!("~{rest}"),
+        _ => scope.to_string(),
+    }
+}
+
+/// Pad or cut at the start (paths): the end is the meaningful part.
 fn fit(s: &str, w: usize) -> String {
     let n = s.chars().count();
     if n <= w {
@@ -76,37 +95,42 @@ fn draw(list: &[Entry], sel: usize, status: &str, stats: Option<&str>) -> io::Re
     queue!(
         out,
         SetAttribute(Attribute::Bold),
-        Print(fit(&format!(" hivelock   {} secrets · {locked} locked · {ask} ask", list.len()), w)),
+        Print(fit_end(&format!(" hivelock   {} secrets · {locked} locked · {ask} ask", list.len()), w)),
         SetAttribute(Attribute::Reset)
     )?;
     if let Some(text) = stats {
         for (i, line) in text.lines().take(h.saturating_sub(3)).enumerate() {
-            queue!(out, MoveTo(0, i as u16 + 2), Print(fit(line, w)))?;
+            queue!(out, MoveTo(0, i as u16 + 2), Print(fit_end(line, w)))?;
         }
-        queue!(out, MoveTo(0, rows - 2), Print(fit(" any key: back", w)))?;
+        queue!(out, MoveTo(0, rows - 2), Print(fit_end(" any key: back", w)))?;
         return out.flush();
     }
-    let name_w = 28.min(w / 3);
-    let header = format!(" {} {:<7} {:<18} {:<22} {:>6}", fit("NAME", name_w), "LEVEL", "KIND", "SCOPE", "ADDED");
-    queue!(out, MoveTo(0, 2), SetAttribute(Attribute::Dim), Print(fit(&header, w)), SetAttribute(Attribute::Reset))?;
+    let kinds: Vec<String> = list.iter().map(|e| if e.file { format!("{} ·file", e.kind) } else { e.kind.clone() }).collect();
+    let longest = |it: &mut dyn Iterator<Item = usize>, min: usize| it.max().unwrap_or(0).max(min);
+    let kind_w = longest(&mut kinds.iter().map(|k| k.chars().count()), 4).min(22);
+    let name_w = longest(&mut list.iter().map(|e| e.name.chars().count()), 4).min((w / 2).max(12));
+    let scope_w = longest(&mut list.iter().map(|e| short_scope(&e.scope).chars().count()), 5).min(w.saturating_sub(name_w + kind_w + 7 + 6 + 6).max(8));
+    let row = |name: &str, level: &str, kind: &str, scope: &str, added: &str| {
+        fit_end(&format!(" {} {level:<7} {} {} {added:>6}", fit_end(name, name_w), fit_end(kind, kind_w), fit(scope, scope_w)), w)
+    };
+    queue!(out, MoveTo(0, 2), SetAttribute(Attribute::Dim), Print(row("NAME", "LEVEL", "KIND", "SCOPE", "ADDED")), SetAttribute(Attribute::Reset))?;
     let body = h.saturating_sub(6);
     let first = sel.saturating_sub(body.saturating_sub(1));
-    for (row, (i, e)) in list.iter().enumerate().skip(first).take(body).enumerate() {
+    for (r, (i, e)) in list.iter().enumerate().skip(first).take(body).enumerate() {
         let level = if e.locked { "locked" } else if e.ask { "ask" } else { "open" };
-        let kind = if e.file { format!("{} ·file", e.kind) } else { e.kind.clone() };
-        let line = format!(" {} {:<7} {} {} {:>6}", fit(&e.name, name_w), level, fit(&kind, 18), fit(&e.scope, 22), ago(e.created));
-        queue!(out, MoveTo(0, row as u16 + 3))?;
+        let line = row(&e.name, level, &kinds[i], &short_scope(&e.scope), &ago(e.created));
+        queue!(out, MoveTo(0, r as u16 + 3))?;
         if i == sel {
-            queue!(out, SetAttribute(Attribute::Reverse), Print(fit(&line, w)), SetAttribute(Attribute::Reset))?;
+            queue!(out, SetAttribute(Attribute::Reverse), Print(line), SetAttribute(Attribute::Reset))?;
         } else {
-            queue!(out, Print(fit(&line, w)))?;
+            queue!(out, Print(line))?;
         }
     }
     if list.is_empty() {
         queue!(out, MoveTo(1, 4), Print("no secrets yet: press a to add, i to import a .env or key file"))?;
     }
-    queue!(out, MoveTo(0, rows - 3), SetAttribute(Attribute::Dim), Print(fit(KEYS, w)), SetAttribute(Attribute::Reset))?;
-    queue!(out, MoveTo(0, rows - 2), Print(fit(&format!(" {status}"), w)))?;
+    queue!(out, MoveTo(0, rows - 3), SetAttribute(Attribute::Dim), Print(fit_end(KEYS, w)), SetAttribute(Attribute::Reset))?;
+    queue!(out, MoveTo(0, rows - 2), Print(fit_end(&format!(" {status}"), w)))?;
     out.flush()
 }
 
