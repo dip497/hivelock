@@ -1,35 +1,68 @@
 # hivelock
 
-I kept handing secrets to my coding agent. Paste the API key into the prompt, or just say "read it from my `.env`". It works, and now that key sits with the model provider, in the session log on disk, and in whatever output the agent prints next.
+**Keep secrets out of your AI coding agent.** It sees names, never values.
 
-hivelock stops that. Paste a secret and the message is held back before it's sent: the secret goes into a local encrypted vault, and you resend with `{{lock:STRIPE_SECRET_KEY}}`. The agent only ever works with that name. When it runs a command, hivelock fills in the real value and masks it again in the output.
+> *I kept handing secrets to my coding agent.* Paste the API key into the prompt, or just say **"read it from my `.env`"**.
+>
+> It works — and now that key sits with the model provider, in the session log on disk, and in whatever output the agent prints next.
+
+hivelock holds that message back before it's sent. The secret goes into a local encrypted vault, and you resend it by name:
+
+```diff
+- STRIPE_SECRET_KEY=sk_live_…the real key you just pasted…
++ STRIPE_SECRET_KEY={{lock:STRIPE_SECRET_KEY}}
+```
+
+The agent only ever works with `{{lock:STRIPE_SECRET_KEY}}`. When it runs a command, hivelock fills in the real value at the last moment and masks it again in the output:
+
+```console
+$ curl -H "Authorization: Bearer {{lock:GITHUB_TOKEN}}" api.github.com/user
+[lock:GITHUB_TOKEN]   ← what the agent gets back
+```
+
+---
 
 ## Install
 
-macOS, Linux, WSL:
+**macOS · Linux · WSL**
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dip497/hivelock/main/install.sh | sh
 ```
 
-Windows (cmd or PowerShell):
+**Windows** *(cmd or PowerShell)*
 
 ```bat
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/dip497/hivelock/main/install.ps1 | iex"
 ```
 
-No Rust needed. The installer downloads the binary for your machine, checks it, and then asks which agents to protect (all are ticked by default). You can also grab a binary from [Releases](https://github.com/dip497/hivelock/releases) or build it with `cargo install --git https://github.com/dip497/hivelock`.
+*No Rust needed.* The installer fetches the binary for your machine, verifies its checksum, and asks which agents to protect — all ticked by default. You can also take a binary from [Releases](https://github.com/dip497/hivelock/releases), or build it with `cargo install --git https://github.com/dip497/hivelock`.
 
 ## Use
 
 ```sh
-hivelock setup             # pick agents again any time
-hivelock import .env       # move existing secrets into the vault
+hivelock import .env       # move the secrets you already have into the vault
 hivelock doctor            # check that it's working
+hivelock                   # the manager: list, add, lock, stats
 ```
 
-Then work as usual. Run `hivelock` on its own for a small manager, or `hivelock help` for every command.
+Then work as usual. `hivelock help` lists every command.
 
-Works on Linux, macOS and Windows. It is not a sandbox, so read [what it does and doesn't protect](docs/security.md).
+## What you get
 
-[Docs](docs/) · MIT
+| | |
+|---|---|
+| **Paste a secret in chat** | held back before it's sent, and handed back to you as `{{lock:NAME}}` |
+| **Agent runs a command** | real value injected at run time, masked in the output |
+| **Agent reads a file with secrets** | masked before the model sees it, and locked away |
+| **Old sessions on disk** | scrubbed in place |
+| **`hivelock lock NAME`** | human-only: passphrase, agents can't touch it |
+| **`hivelock ask NAME`** | the agent must ask you every single time |
+
+Works with **Claude Code · Codex · Copilot CLI · Gemini CLI · Cursor · Qwen Code** on Linux, macOS and Windows.
+
+---
+
+*It is not a sandbox.* Read [what it does and doesn't protect](docs/security.md) — then [usage](docs/usage.md) and [agents](docs/agents.md).
+
+MIT
