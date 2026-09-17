@@ -32,7 +32,9 @@ Manual testing: always set `HIVELOCK_HOME=<scratch dir>` and `HIVELOCK_NO_CLIPBO
 - Hook output shapes are verified against real agents; don't "clean them up" from docs alone:
   - Claude `updatedToolOutput` must keep the tool's object shape (a plain string is ignored).
   - Codex can't rewrite commands safely, so its hook denies with instructions; Codex `ask` relies on the prompt rule in `~/.codex/rules/hivelock.rules`, plus a check that the session's turn_context isn't full-access / never / auto-review.
-  - Claude install sets `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`, because title generation leaks blocked prompts.
+  - Claude install sets `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`, because title generation leaks blocked prompts; block output also sets `hookSpecificOutput.suppressOriginalPrompt` (it is ignored at top level).
+  - Parallel `PreToolUse` hooks that both return `updatedInput`: the one that finishes last wins (verified). With rtk installed, hivelock folds in `rtk rewrite` and replies after 400 ms.
+  - No agent lets a hook rewrite the user prompt except Copilot (`userPromptTransformed`) and Gemini (`BeforeModel`). Rewriting the session file doesn't work either (verified: the model still gets the in-memory text). After a block, `hivelock refill` puts the masked text back via tmux/WezTerm/kitty/zellij.
 - Rule regexes compile as ASCII byte regexes (Go RE2 semantics). Unicode `\w` made scans ~50x slower.
 - Generic detection (`detect_chat`) runs on chat text only, never on auto-captured tool output.
 - Tests that set `HIVELOCK_HOME` must hold `vault::TEST_ENV`.

@@ -4,7 +4,7 @@
 
 ## Getting secrets in
 
-- **Paste it in chat.** hivelock detects it, saves it with a name (`ghp_…` → `GITHUB_TOKEN`), holds the message back and copies a masked version to your clipboard. Paste that to resend. Add `!nolock` to a message if something isn't really a secret.
+- **Paste it in chat.** hivelock detects it, saves it with a name (`ghp_…` → `GITHUB_TOKEN`), holds the message back and puts the masked version back in the input box (tmux, WezTerm, kitty, zellij) or on your clipboard. Press Enter or paste to resend. Add `!nolock` to a message if something isn't really a secret.
 - **`hivelock import .env`** imports the secret variables and leaves `PORT`, `NODE_ENV` and similar alone.
 - **`hivelock import ~/.ssh/deploy_key`** stores key files (`.pem`, `id_rsa`, `.p12`, service-account JSON, kubeconfig) as file secrets.
 - **`hivelock add NAME`** asks for the value with hidden input, or reads it from stdin.

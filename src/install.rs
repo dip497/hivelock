@@ -20,6 +20,22 @@ fn config_path(agent: &str) -> Result<PathBuf, String> {
     })
 }
 
+/// An rtk command-rewriting hook is configured for this agent (both rewrite the same tool call).
+pub fn rtk_hooked(agent: &str) -> bool {
+    let Ok(path) = config_path(agent) else { return false };
+    let text = if agent == "copilot" {
+        std::fs::read_dir(path.parent().unwrap_or(&path))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|e| std::fs::read_to_string(e.path()).ok())
+            .collect::<String>()
+    } else {
+        std::fs::read_to_string(&path).unwrap_or_default()
+    };
+    text.contains("rtk-rewrite") || text.contains("rtk hook") || text.contains("rtk rewrite")
+}
+
 /// copilot and cursor list handlers directly under the event; the rest nest them in matcher groups
 fn flat(agent: &str) -> bool {
     matches!(agent, "copilot" | "cursor")
@@ -30,6 +46,7 @@ fn events(agent: &str) -> Vec<(&'static str, Option<&'static str>, &'static str)
     match agent {
         "gemini" => vec![
             ("BeforeAgent", None, "prompt"),
+            ("BeforeModel", None, "model"),
             ("SessionStart", None, "start"),
             ("SessionEnd", None, "end"),
             ("BeforeTool", Some("run_shell_command|read_file"), "pre"),

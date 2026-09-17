@@ -111,6 +111,7 @@ pub fn hook(agent: &str, event: &str) -> i32 {
         "prompt" => on_prompt(&call, t0),
         "pre" => on_pre(&call),
         "shell" => on_shell(&call),
+        "model" => on_model(&call),
         "post" => on_post(&call, t0),
         "start" => on_start(&call),
         "end" => {
@@ -202,6 +203,7 @@ fn on_prompt(call: &Call, t0: Instant) -> Option<Value> {
         Err(e) => (String::new(), format!("Secret NOT stored (vault error: {e}).")),
     };
     let copied = !rewritten.is_empty() && copy_to_clipboard(&rewritten);
+    let refilled = !rewritten.is_empty() && spawn_refill(&rewritten);
     if rewritten.len() > 1500 {
         let mut cut = 1500;
         while !rewritten.is_char_boundary(cut) {
@@ -215,15 +217,80 @@ fn on_prompt(call: &Call, t0: Instant) -> Option<Value> {
         audit::log("blocked_prompt", call.agent, &f.name, "", ms);
     }
     scrub::spawn_delayed(&[call.transcript(), &scrub::history_file(call.agent).to_string_lossy()], 1500);
+    let how = if refilled {
+        "It's back in your input box with the placeholder: press Enter to send"
+    } else if copied {
+        "Resend it with the placeholder (already copied to your clipboard, just paste)"
+    } else {
+        "Resend it with the placeholder"
+    };
     let reason = format!(
-        "hivelock: your message contained a secret, so it was NOT sent.\n{status}\n\nResend it with the placeholder{}:\n\n{rewritten}\n\n(Not a secret? Add !nolock to your message.)",
-        if copied { " (already copied to your clipboard, just paste)" } else { "" }
+        "hivelock: your message contained a secret, so it was NOT sent.\n{status}\n\n{how}:\n\n{rewritten}\n\n(Not a secret? Add !nolock to your message.)"
     );
     Some(match call.agent {
         "gemini" => json!({"decision": "deny", "reason": reason}),
         "cursor" => json!({"continue": false, "user_message": reason}),
+        // suppressOriginalPrompt: don't print the secret back in the block notice
+        "claude" => json!({"decision": "block", "reason": reason, "hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "suppressOriginalPrompt": true}}),
         _ => json!({"decision": "block", "reason": reason}),
     })
+}
+
+/// Terminals that accept injected input. The masked prompt is put back into the agent's input box
+/// (not submitted) once the block notice is shown. None → clipboard only.
+fn refill_target() -> Option<&'static str> {
+    let has = |k: &str| std::env::var_os(k).is_some_and(|v| !v.is_empty());
+    if has("TMUX_PANE") {
+        Some("tmux")
+    } else if has("WEZTERM_PANE") {
+        Some("wezterm")
+    } else if has("KITTY_WINDOW_ID") && has("KITTY_LISTEN_ON") {
+        Some("kitty")
+    } else if has("ZELLIJ") {
+        Some("zellij")
+    } else {
+        None
+    }
+}
+
+fn spawn_refill(text: &str) -> bool {
+    use std::process::{Command, Stdio};
+    let Some(target) = refill_target() else { return false };
+    // kitty/zellij inject raw keys: a newline would submit half a message
+    if matches!(target, "kitty" | "zellij") && text.contains('\n') {
+        return false;
+    }
+    let Ok(exe) = std::env::current_exe() else { return false };
+    Command::new(exe)
+        .args(["refill", target, &base64::engine::general_purpose::STANDARD.encode(text)])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .is_ok()
+}
+
+/// `hivelock refill <target> <b64>`: runs detached from the hook, after the agent shows the block.
+pub fn refill(target: &str, b64: &str) -> i32 {
+    use std::process::Command;
+    let Ok(text) = base64::engine::general_purpose::STANDARD.decode(b64).map(|b| String::from_utf8_lossy(&b).into_owned()) else {
+        return 1;
+    };
+    // ponytail: fixed delay for the agent to re-enable its input; a slow machine may need more
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+    let env = |k: &str| std::env::var(k).unwrap_or_default();
+    let ok = match target {
+        // paste (bracketed when the app asks for it) so multi-line prompts aren't submitted early
+        "tmux" => {
+            Command::new("tmux").args(["set-buffer", "-b", "hivelock", "--", &text]).status().is_ok_and(|s| s.success())
+                && Command::new("tmux").args(["paste-buffer", "-p", "-d", "-b", "hivelock", "-t", &env("TMUX_PANE")]).status().is_ok_and(|s| s.success())
+        }
+        "wezterm" => Command::new("wezterm").args(["cli", "send-text", "--pane-id", &env("WEZTERM_PANE"), "--", &text]).status().is_ok_and(|s| s.success()),
+        "kitty" => Command::new("kitten").args(["@", "send-text", "--match", &format!("id:{}", env("KITTY_WINDOW_ID")), "--", &text]).status().is_ok_and(|s| s.success()),
+        "zellij" => Command::new("zellij").args(["action", "write-chars", &text]).status().is_ok_and(|s| s.success()),
+        _ => false,
+    };
+    if ok { 0 } else { 1 }
 }
 
 /// Masked prompt → clipboard, so resending is one paste. The secret itself never goes there.
@@ -450,11 +517,20 @@ fn on_pre(call: &Call) -> Option<Value> {
         let amp = if call.tool_name == "powershell" { "& " } else { "" };
         // the native prompt approves this exact call; `run` refuses the ask secret without this grant
         let grant = if ask.is_empty() { String::new() } else { format!(" --grant {}", crate::approve::issue_nonce()) };
+        // another rewriting hook (rtk) runs in parallel and the last reply wins: fold its rewrite in, answer after it
+        let inner = if crate::install::rtk_hooked(call.agent) {
+            let r = rtk_rewrite(cmd);
+            // ponytail: timing-based; rtk's hook takes ~40ms, we answer after 400ms
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            r.unwrap_or_else(|| cmd.to_string())
+        } else {
+            cmd.to_string()
+        };
         let wrapped = format!(
             "{amp}\"{}\" run --agent {}{grant} --b64 {}",
             exe.display(),
             call.agent,
-            base64::engine::general_purpose::STANDARD.encode(cmd)
+            base64::engine::general_purpose::STANDARD.encode(&inner)
         );
         return decide(if ask.is_empty() { Verdict::Rewrite(wrapped) } else { Verdict::Ask(reason, wrapped) });
     }
@@ -509,6 +585,43 @@ fn codex_prompts(transcript: &str) -> Result<(), String> {
         (_, _, r) if r != "user" => Err(format!("approvals reviewed by {r}")),
         _ => Ok(()),
     }
+}
+
+/// `rtk rewrite <cmd>`: exit 0 (allow) or 3 (ask) with the rewritten command on stdout.
+fn rtk_rewrite(cmd: &str) -> Option<String> {
+    let out = std::process::Command::new("rtk").args(["rewrite", cmd]).output().ok()?;
+    let rewritten = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (matches!(out.status.code(), Some(0 | 3)) && !rewritten.is_empty()).then_some(rewritten)
+}
+
+/// Gemini `BeforeModel`: mask secrets in everything about to be sent to the model
+/// (file contents, tool results, earlier turns), rewriting the outgoing request itself.
+fn on_model(call: &Call) -> Option<Value> {
+    let mut messages = call.v["llm_request"]["messages"].clone();
+    messages.as_array()?;
+    let mut found: Vec<Finding> = Vec::new();
+    strings_mut(&mut messages, &mut |s| found.extend(detect::detect_chat(s)));
+    if !found.is_empty() {
+        if let Ok(mut st) = Store::init().and_then(|_| Store::open_rw()) {
+            for f in &found {
+                st.add(&f.name, &f.value, &f.kind, "global", &format!("model:{}", call.agent));
+            }
+            let _ = st.save();
+        }
+    }
+    let red = Redactor::new(Store::open().ok()?.mask_pairs());
+    let mut hits = 0;
+    strings_mut(&mut messages, &mut |s| {
+        if let Some(r) = red.redact(s) {
+            *s = r;
+            hits += 1;
+        }
+    });
+    if hits == 0 {
+        return None;
+    }
+    audit::log("masked_request", call.agent, "", "", 0);
+    Some(json!({"hookSpecificOutput": {"hookEventName": "BeforeModel", "llm_request": {"messages": messages}}}))
 }
 
 /// Cursor `beforeShellExecution`: its native "ask" for `hivelock run --ask` commands.

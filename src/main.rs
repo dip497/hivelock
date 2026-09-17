@@ -116,6 +116,7 @@ fn dispatch(args: &[String]) -> Result<i32, String> {
     let rest = &args[args.len().min(1)..];
     match cmd {
         "hook" => return Ok(hook::hook(positional(rest, 0)?, positional(rest, 1)?)),
+        "refill" => return Ok(hook::refill(positional(rest, 0)?, positional(rest, 1)?)),
         "run" => return run::run(rest),
         "doctor" => return install::doctor(),
         "init" => {
