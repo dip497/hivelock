@@ -61,8 +61,10 @@ fi
 
 tar xzf "$tmp/$name.tar.gz" -C "$tmp"
 mkdir -p "$bin_dir"
-cp "$tmp/$name/hivelock" "$bin_dir/hivelock"
-chmod 755 "$bin_dir/hivelock"
+# write beside it and rename over: works even while hivelock is running (hooks, TUI)
+cp "$tmp/$name/hivelock" "$bin_dir/.hivelock.new"
+chmod 755 "$bin_dir/.hivelock.new"
+mv -f "$bin_dir/.hivelock.new" "$bin_dir/hivelock"
 
 echo "installed $("$bin_dir/hivelock" --version) to $bin_dir/hivelock"
 case ":$PATH:" in

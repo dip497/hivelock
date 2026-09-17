@@ -27,7 +27,11 @@ try {
 
     Expand-Archive "$tmp\$name.zip" -DestinationPath $tmp -Force
     New-Item -ItemType Directory -Path $binDir -Force | Out-Null
-    Copy-Item "$tmp\$name\hivelock.exe" "$binDir\hivelock.exe" -Force
+    # a running exe can't be overwritten on Windows, but it can be renamed out of the way
+    $exe = "$binDir\hivelock.exe"
+    Remove-Item "$exe.old" -Force -ErrorAction SilentlyContinue
+    if (Test-Path $exe) { Move-Item $exe "$exe.old" -Force }
+    Copy-Item "$tmp\$name\hivelock.exe" $exe -Force
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
