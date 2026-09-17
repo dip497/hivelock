@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>hivelock — secrets stay on your machine</title>
+<meta name="description" content="Keep secrets out of AI coding agents. They see names, never values." />
+<meta name="theme-color" content="#1B1E20" />
+<link rel="icon" href="favicon.svg" />
+<meta property="og:title" content="hivelock" />
+<meta property="og:description" content="Keep secrets out of AI coding agents. They see names, never values." />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+<style>
+/* One palette with the rest of the family (hivemind): dark is the default, light is the same hue lit the other way. */
+:root{
+  --paper:oklch(0.169 0.003 230.81); --surface:oklch(0.216 0.0025 230.82); --sunk:oklch(0.193 0.002 230.81);
+  --ink:oklch(0.924 0.0017 230.69); --body:oklch(0.846 0.0035 230.72); --muted:oklch(0.684 0.0074 230.81);
+  --line:oklch(0.259 0.0033 230.84); --accent:oklch(0.76 0.07 242); --soft:oklch(0.26 0.012 245);
+  --chip:oklch(0.243 0.003 230.82); --warn:oklch(0.80 0.13 72); --ok:oklch(0.74 0.07 155);
+  --w:1060px; --r:10px;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:light){
+  :root{
+    --paper:oklch(0.985 0.002 230); --surface:oklch(0.966 0.002 230); --sunk:oklch(0.945 0.003 230);
+    --ink:oklch(0.252 0.006 230); --body:oklch(0.404 0.006 230); --muted:oklch(0.548 0.008 230);
+    --line:oklch(0.902 0.004 230); --accent:oklch(0.50 0.13 230); --soft:oklch(0.93 0.03 265);
+    --chip:oklch(0.935 0.004 230); --warn:oklch(0.55 0.15 60); --ok:oklch(0.50 0.10 155);
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--body);font-family:var(--sans);font-size:16.5px;line-height:1.6;
+  -webkit-font-smoothing:antialiased}
+/* marble grain, the family's section art rendered in CSS so the page stays one file */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background:
+    radial-gradient(60% 40% at 15% 0%, color-mix(in oklab,var(--accent) 12%,transparent), transparent 70%),
+    radial-gradient(45% 35% at 92% 12%, color-mix(in oklab,var(--warn) 8%,transparent), transparent 72%),
+    radial-gradient(50% 40% at 50% 100%, color-mix(in oklab,var(--accent) 7%,transparent), transparent 70%)}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.055;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E")}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3{color:var(--ink);letter-spacing:-.02em;line-height:1.2;margin:0}
+h1{font-size:clamp(30px,5vw,46px);font-weight:700}
+h2{font-size:clamp(21px,2.6vw,26px);font-weight:600}
+h3{font-size:15px;font-weight:600}
+p{margin:.6em 0}
+code,kbd{font-family:var(--mono);font-size:.88em}
+.wrap{max-width:var(--w);margin:0 auto;padding:0 24px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;background:color-mix(in oklab,var(--paper) 88%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav-in{max-width:var(--w);margin:0 auto;padding:0 24px;height:58px;display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:9px;color:var(--ink);font-weight:700;letter-spacing:-.02em;font-size:17px}
+.brand svg{width:24px;height:24px}
+.tag{font-family:var(--mono);font-size:11.5px;color:var(--muted);border:1px solid var(--line);
+  border-radius:4px;padding:2px 7px}
+.nav .spacer{flex:1}
+.nav a.plain{color:var(--body);font-size:14.5px}
+
+/* hero */
+.hero{padding:74px 0 20px}
+.hero p.lede{font-size:clamp(17px,2.2vw,20px);color:var(--body);max-width:44ch;margin-top:14px}
+.cmds{display:grid;gap:10px;margin:26px 0 8px;max-width:760px}
+.cmd{display:flex;align-items:center;gap:10px;background:var(--sunk);border:1px solid var(--line);
+  border-radius:var(--r);padding:11px 12px;font-family:var(--mono);font-size:13px;color:var(--ink);overflow:hidden}
+.cmd span{overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.cmd span::-webkit-scrollbar{display:none}
+.cmd .os{color:var(--muted);flex:none;border-right:1px solid var(--line);padding-right:10px}
+.cmd button{margin-left:auto;flex:none;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  background:transparent;border:1px solid var(--line);border-radius:5px;padding:3px 9px;cursor:pointer}
+.cmd button:hover{color:var(--ink);border-color:var(--muted)}
+
+/* meander: the family's greek key, one hairline high */
+.meander{height:12px;margin:56px auto;width:min(260px,40%);color:var(--line);
+  background-repeat:repeat-x;background-position:center;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='12' fill='none' stroke='%23808a90' stroke-width='1.2'%3E%3Cpath d='M1 11V1h26M5 11V5h18v6M9 11V9h10'/%3E%3C/svg%3E");
+  opacity:.32}
+
+section{padding:6px 0}
+.eyebrow{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:8px}
+.sub{color:var(--muted);margin:6px 0 22px;max-width:56ch}
+
+/* panels */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.panel h3{margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.panel svg{width:100%;height:auto;display:block}
+.cap{font-size:13.5px;color:var(--muted);margin-top:10px}
+
+/* diagram ink */
+.d-box{fill:var(--sunk);stroke:var(--line)}
+.d-lbl{fill:var(--ink);font:500 12px var(--sans)}
+.d-mono{font:400 11px var(--mono)}
+.d-leak{fill:var(--warn)}
+.d-safe{fill:var(--accent)}
+.d-arrow{stroke:var(--muted);fill:none}
+.d-small{fill:var(--muted);font:400 11px var(--sans)}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card svg{width:20px;height:20px;margin-bottom:8px;color:var(--accent)}
+.card p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
+
+/* table */
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:500;font-size:12.5px;font-family:var(--mono)}
+td:first-child{color:var(--ink);font-weight:500}
+.y{color:var(--ok)}
+.n{color:var(--muted)}
+
+/* lists */
+.lists{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.lists ul{margin:0;padding:0;list-style:none}
+.lists li{padding:7px 0 7px 24px;position:relative;font-size:14.5px;border-bottom:1px solid var(--line)}
+.lists li:last-child{border-bottom:0}
+.lists li::before{position:absolute;left:2px;top:7px;font-family:var(--mono);font-size:13px}
+.keeps li::before{content:"✓";color:var(--ok)}
+.limits li::before{content:"·";color:var(--warn)}
+
+pre{background:var(--sunk);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;overflow-x:auto;
+  font-family:var(--mono);font-size:13px;color:var(--ink);line-height:1.75;margin:0}
+pre .c{color:var(--muted)}
+
+footer{margin:70px 0 50px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;
+  display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+footer .spacer{flex:1}
+
+@media (max-width:720px){
+  .two,.lists{grid-template-columns:1fr}
+  .hero{padding:48px 0 12px}
+  .meander{margin:40px 0}
+}
+@media (prefers-reduced-motion:no-preference){
+  .cmd button{transition:color .15s ease,border-color .15s ease}
+}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="./" aria-label="hivelock home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M11.14 1.70 Q12 1.20 12.86 1.70 L16.51 3.80 Q17.37 4.30 17.37 5.29 L17.37 9.51 Q17.37 10.50 16.51 11 L12.86 13.10 Q12 13.60 11.14 13.10 L7.49 11 Q6.63 10.50 6.63 9.51 L6.63 5.29 Q6.63 4.30 7.49 3.80 Z M12 5.15 Q10.62 5.15 10.62 6.53 L10.62 7.05 Q10.12 7.05 10.12 7.55 L10.12 9.85 Q10.12 10.35 10.62 10.35 L13.38 10.35 Q13.88 10.35 13.88 9.85 L13.88 7.55 Q13.88 7.05 13.38 7.05 L13.38 6.53 Q13.38 5.15 12 5.15 Z M12 6.05 Q12.48 6.05 12.48 6.53 L12.48 7.05 L11.52 7.05 L11.52 6.53 Q11.52 6.05 12 6.05 Z M12 8.05 Q12.45 8.05 12.45 8.50 Q12.45 8.80 12.25 8.95 L12.25 9.35 Q12.25 9.60 12 9.60 Q11.75 9.60 11.75 9.35 L11.75 8.95 Q11.55 8.80 11.55 8.50 Q11.55 8.05 12 8.05 Z"/><path fill="currentColor" opacity=".4" d="M5.60 11.30 Q6.46 10.80 7.32 11.30 L10.97 13.40 Q11.83 13.90 11.83 14.89 L11.83 19.11 Q11.83 20.10 10.97 20.60 L7.32 22.70 Q6.46 23.20 5.60 22.70 L1.95 20.60 Q1.09 20.10 1.09 19.11 L1.09 14.89 Q1.09 13.90 1.95 13.40 Z"/><path fill="currentColor" opacity=".4" d="M16.68 11.30 Q17.54 10.80 18.40 11.30 L22.05 13.40 Q22.91 13.90 22.91 14.89 L22.91 19.11 Q22.91 20.10 22.05 20.60 L18.40 22.70 Q17.54 23.20 16.68 22.70 L13.03 20.60 Q12.17 20.10 12.17 19.11 L12.17 14.89 Q12.17 13.90 13.03 13.40 Z"/></svg>
+      hivelock
+    </a>
+    <span class="tag">v0.0.3</span>
+    <span class="spacer"></span>
+    <a class="plain" href="https://github.com/dip497/hivelock">GitHub</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Your coding agent<br />doesn't need your keys.</h1>
+    <p class="lede">It only needs their names. hivelock keeps the values on your machine — encrypted, injected only when a command actually runs.</p>
+
+    <div class="cmds">
+      <div class="cmd"><span class="os">macOS · Linux</span><span id="c1">curl -fsSL https://raw.githubusercontent.com/dip497/hivelock/main/install.sh | sh</span><button data-copy="c1">copy</button></div>
+      <div class="cmd"><span class="os">Windows</span><span id="c2">powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/dip497/hivelock/main/install.ps1 | iex"</span><button data-copy="c2">copy</button></div>
+    </div>
+  </section>
+
+  <div class="meander" role="presentation"></div>
+
+  <section>
+    <p class="eyebrow">what leaves your machine</p>
+    <div class="two">
+      <div class="panel">
+        <h3><span class="dot" style="background:var(--warn)"></span> without</h3>
+        <svg viewBox="0 0 400 200" role="img" aria-label="Without hivelock, a pasted key reaches the model provider, the session log and the tool output.">
+          <rect class="d-box" x="8" y="20" width="92" height="34" rx="8"/>
+          <text class="d-lbl" x="54" y="41" text-anchor="middle">you</text>
+          <path class="d-arrow" d="M104 37 H150" marker-end="url(#a1)"/>
+          <rect class="d-leak" x="106" y="6" width="44" height="15" rx="4" opacity=".25"/>
+          <text class="d-mono d-leak" x="128" y="17" text-anchor="middle">sk_live…</text>
+          <rect class="d-box" x="154" y="20" width="92" height="34" rx="8"/>
+          <text class="d-lbl" x="200" y="41" text-anchor="middle">agent</text>
+          <path class="d-arrow" d="M250 37 H296" marker-end="url(#a1)"/>
+          <rect class="d-leak" x="252" y="6" width="44" height="15" rx="4" opacity=".25"/>
+          <text class="d-mono d-leak" x="274" y="17" text-anchor="middle">sk_live…</text>
+          <rect class="d-box" x="300" y="20" width="92" height="34" rx="8"/>
+          <text class="d-lbl" x="346" y="41" text-anchor="middle">provider</text>
+          <path class="d-arrow" d="M200 58 V86" marker-end="url(#a1)"/>
+          <path class="d-arrow" d="M200 116 V144" marker-end="url(#a1)"/>
+          <rect class="d-box" x="128" y="90" width="144" height="28" rx="8"/>
+          <text class="d-lbl" x="200" y="108" text-anchor="middle">session log on disk</text>
+          <rect class="d-box" x="128" y="148" width="144" height="28" rx="8"/>
+          <text class="d-lbl" x="200" y="166" text-anchor="middle">next tool output</text>
+          <circle class="d-leak" cx="286" cy="104" r="4"/><circle class="d-leak" cx="286" cy="162" r="4"/>
+          <defs><marker id="a1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="currentColor" class="d-arrow" style="fill:var(--muted);stroke:none"/></marker></defs>
+        </svg>
+        <p class="cap">One paste, three copies you didn't intend.</p>
+      </div>
+
+      <div class="panel">
+        <h3><span class="dot" style="background:var(--ok)"></span> with hivelock</h3>
+        <svg viewBox="0 0 400 200" role="img" aria-label="With hivelock the key goes to a local vault and the agent and provider only see the name.">
+          <rect class="d-box" x="8" y="20" width="92" height="34" rx="8"/>
+          <text class="d-lbl" x="54" y="41" text-anchor="middle">you</text>
+          <path class="d-arrow" d="M104 37 H150" marker-end="url(#a2)"/>
+          <rect class="d-box" x="154" y="20" width="92" height="34" rx="8" style="stroke:var(--accent)"/>
+          <text class="d-lbl" x="200" y="41" text-anchor="middle">hivelock</text>
+          <path class="d-arrow" d="M250 37 H296" marker-end="url(#a2)"/>
+          <rect class="d-safe" x="248" y="6" width="52" height="15" rx="4" opacity=".22"/>
+          <text class="d-mono d-safe" x="274" y="17" text-anchor="middle">{{lock:…}}</text>
+          <rect class="d-box" x="300" y="20" width="92" height="34" rx="8"/>
+          <text class="d-lbl" x="346" y="41" text-anchor="middle">agent</text>
+          <path class="d-arrow" d="M200 58 V86" marker-end="url(#a2)"/>
+          <rect class="d-box" x="128" y="90" width="144" height="40" rx="10" style="stroke:var(--accent)"/>
+          <text class="d-lbl" x="200" y="109" text-anchor="middle">local vault</text>
+          <text class="d-small" x="200" y="123" text-anchor="middle">encrypted, 0600</text>
+          <path class="d-arrow" d="M272 110 H330 V58" marker-end="url(#a2)" stroke-dasharray="3 3"/>
+          <text class="d-small" x="200" y="164" text-anchor="middle">value injected only when a command runs</text>
+          <text class="d-small" x="200" y="182" text-anchor="middle">— and masked again in its output</text>
+          <defs><marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" style="fill:var(--muted);stroke:none"/></marker></defs>
+        </svg>
+        <p class="cap">The name is all the agent ever holds.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="meander" role="presentation"></div>
+
+  <section>
+    <p class="eyebrow">where it sits</p>
+    <div class="cards">
+      <div class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M8 12h8M12 8v8"/></svg>
+        <h3>Your message</h3>
+        <p>Secret detected, stored, message held back — masked text handed straight back to you.</p>
+      </div>
+      <div class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 17l6-5-6-5M12 19h8"/></svg>
+        <h3>Commands</h3>
+        <p>The agent writes <code>{{lock:NAME}}</code>. The real value appears only inside that one command.</p>
+      </div>
+      <div class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>
+        <h3>Tool output</h3>
+        <p>Known values masked, new ones captured — before the model reads a line.</p>
+      </div>
+      <div class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+        <h3>Old sessions</h3>
+        <p>Transcripts already on disk are scrubbed in place.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="meander" role="presentation"></div>
+
+  <section>
+    <p class="eyebrow">per secret</p>
+    <div class="cards">
+      <div class="card">
+        <h3 style="color:var(--ok)">open</h3>
+        <p>Agents use it freely. Value never leaves the command that needs it.</p>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--warn)">ask</h3>
+        <p>Every single use waits for your approval, in the agent's own prompt.</p>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--accent)">locked</h3>
+        <p>Passphrase, human only. Agent shells have no terminal, so they can't answer it.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="meander" role="presentation"></div>
+
+  <section>
+    <p class="eyebrow">agents</p>
+    <table>
+      <thead><tr><th>agent</th><th>pasted secret</th><th>commands</th><th>output</th><th>ask</th></tr></thead>
+      <tbody>
+        <tr><td>Claude Code</td><td>held back</td><td class="y">rewritten</td><td class="y">masked</td><td class="y">native</td></tr>
+        <tr><td>Codex</td><td>held back</td><td>wrapped</td><td class="y">masked</td><td class="y">native</td></tr>
+        <tr><td>Copilot CLI</td><td class="y">masked in place</td><td class="y">rewritten</td><td class="y">masked</td><td class="y">native</td></tr>
+        <tr><td>Gemini CLI</td><td>held back</td><td class="y">rewritten</td><td class="y">masked</td><td class="n">—</td></tr>
+        <tr><td>Cursor</td><td>held back</td><td>wrapped</td><td class="n">—</td><td class="y">native</td></tr>
+        <tr><td>Qwen Code</td><td>held back</td><td>wrapped</td><td class="y">masked</td><td class="y">native</td></tr>
+      </tbody>
+    </table>
+    <p class="cap">Linux, macOS, Windows. One binary, no daemon, hooks answer in ~2 ms.</p>
+  </section>
+
+  <div class="meander" role="presentation"></div>
+
+  <section>
+    <p class="eyebrow">honest limits</p>
+    <div class="lists">
+      <ul class="keeps">
+        <li>Pasted secrets never reach the provider</li>
+        <li>Values live encrypted, readable only by you</li>
+        <li>Output masked, encodings included</li>
+        <li>Old transcripts scrubbed</li>
+        <li>Locked secrets need a human at a terminal</li>
+      </ul>
+      <ul class="limits">
+        <li>Not a sandbox: anything running as you can read the key</li>
+        <li>A command given a secret can still leak it, transformed</li>
+        <li>Masking can confirm a guess</li>
+        <li>Values under 8 characters aren't masked</li>
+        <li><code>@file</code> attachments skip hooks; scrubbed after</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="meander" role="presentation"></div>
+
+  <section>
+    <p class="eyebrow">day to day</p>
+<pre><span class="c"># move what you already have</span>
+hivelock import .env
+hivelock import ~/.ssh/deploy_key
+
+<span class="c"># the agent writes names; you never paste a value again</span>
+curl -H "Authorization: Bearer {{lock:GITHUB_TOKEN}}" api.github.com/user
+
+<span class="c"># tighten a secret, or check everything still works</span>
+hivelock lock PROD_DB_PASSWORD
+hivelock doctor</pre>
+    <p class="cap">Run <code>hivelock</code> alone for the manager, <code>hivelock help</code> for the rest.</p>
+  </section>
+
+  <footer>
+    <span>MIT</span>
+    <a href="https://github.com/dip497/hivelock">GitHub</a>
+    <a href="security.md">Security</a>
+    <a href="usage.md">Usage</a>
+    <a href="agents.md">Agents</a>
+    <span class="spacer"></span>
+    <span>part of the hive — <a href="https://hivemind.griiken.com/">hivemind</a></span>
+  </footer>
+</main>
+
+<script>
+document.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById(b.dataset.copy).textContent);
+    b.textContent = "copied";
+    setTimeout(() => (b.textContent = "copy"), 1400);
+  } catch { b.textContent = "select it"; }
+}));
+</script>
+</body>
+</html>
