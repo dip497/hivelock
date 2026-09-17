@@ -1,6 +1,19 @@
-# hivelock
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/mark-dark.png" />
+    <img src="docs/mark-light.png" alt="hivelock" width="76" />
+  </picture>
+</p>
 
-**Keep secrets out of your AI coding agent.** It sees names, never values.
+<h1 align="center">hivelock</h1>
+
+<p align="center"><b>Keep secrets out of your AI coding agent.</b><br />It sees names, never values.</p>
+
+<p align="center">
+  <a href="https://dip497.github.io/hivelock/">site</a> ·
+  <a href="https://github.com/dip497/hivelock/releases">releases</a> ·
+  <a href="docs/security.md">security</a>
+</p>
 
 > *I kept handing secrets to my coding agent.* Paste the API key into the prompt, or just say **"read it from my `.env`"**.
 >

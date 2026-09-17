@@ -10,6 +10,14 @@
 <meta property="og:title" content="hivelock" />
 <meta property="og:description" content="Keep secrets out of AI coding agents. They see names, never values." />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://dip497.github.io/hivelock/" />
+<meta property="og:image" content="https://dip497.github.io/hivelock/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="hivelock" />
+<meta name="twitter:description" content="Your coding agent doesn't need your keys. It only needs their names." />
+<meta name="twitter:image" content="https://dip497.github.io/hivelock/og.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
@@ -80,7 +88,7 @@ code,kbd{font-family:var(--mono);font-size:.88em}
 .cmd button:hover{color:var(--ink);border-color:var(--muted)}
 
 /* meander: the family's greek key, one hairline high */
-.meander{height:12px;margin:56px auto;width:min(260px,40%);color:var(--line);
+.meander{display:block;height:12px;margin:56px auto;width:min(260px,44%);color:var(--line);
   background-repeat:repeat-x;background-position:center;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='12' fill='none' stroke='%23808a90' stroke-width='1.2'%3E%3Cpath d='M1 11V1h26M5 11V5h18v6M9 11V9h10'/%3E%3C/svg%3E");
   opacity:.32}
@@ -99,12 +107,12 @@ section{padding:6px 0}
 
 /* diagram ink */
 .d-box{fill:var(--sunk);stroke:var(--line)}
-.d-lbl{fill:var(--ink);font:500 12px var(--sans)}
-.d-mono{font:400 11px var(--mono)}
+.d-lbl{fill:var(--ink);font:500 14px var(--sans)}
+.d-mono{font:400 13px var(--mono)}
 .d-leak{fill:var(--warn)}
 .d-safe{fill:var(--accent)}
 .d-arrow{stroke:var(--muted);fill:none}
-.d-small{fill:var(--muted);font:400 11px var(--sans)}
+.d-small{fill:var(--muted);font:400 12.5px var(--sans)}
 
 /* cards */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px}
@@ -113,7 +121,9 @@ section{padding:6px 0}
 .card p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
 
 /* table */
-table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+
+.scroll{overflow-x:auto}
+table{width:100%;min-width:520px;border-collapse:collapse;font-size:14px;margin-top:6px}
 th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
 th{color:var(--muted);font-weight:500;font-size:12.5px;font-family:var(--mono)}
 td:first-child{color:var(--ink);font-weight:500}
@@ -140,7 +150,12 @@ footer .spacer{flex:1}
 @media (max-width:720px){
   .two,.lists{grid-template-columns:1fr}
   .hero{padding:48px 0 12px}
-  .meander{margin:40px 0}
+  .meander{margin:40px auto}
+  /* the install line is the point of the page: wrap it rather than clip it */
+  .cmd{flex-wrap:wrap;align-items:flex-start;font-size:12px;line-height:1.7}
+  .cmd .os{border-right:0;border-bottom:1px solid var(--line);padding:0 0 6px;width:100%;font-size:11px}
+  .cmd span{white-space:pre-wrap;word-break:break-all;overflow:visible}
+  .cmd button{margin:6px 0 0 auto}
 }
 @media (prefers-reduced-motion:no-preference){
   .cmd button{transition:color .15s ease,border-color .15s ease}
@@ -284,7 +299,7 @@ footer .spacer{flex:1}
 
   <section>
     <p class="eyebrow">agents</p>
-    <table>
+    <div class="scroll"><table>
       <thead><tr><th>agent</th><th>pasted secret</th><th>commands</th><th>output</th><th>ask</th></tr></thead>
       <tbody>
         <tr><td>Claude Code</td><td>held back</td><td class="y">rewritten</td><td class="y">masked</td><td class="y">native</td></tr>
@@ -294,7 +309,7 @@ footer .spacer{flex:1}
         <tr><td>Cursor</td><td>held back</td><td>wrapped</td><td class="n">—</td><td class="y">native</td></tr>
         <tr><td>Qwen Code</td><td>held back</td><td>wrapped</td><td class="y">masked</td><td class="y">native</td></tr>
       </tbody>
-    </table>
+    </table></div>
     <p class="cap">Linux, macOS, Windows. One binary, no daemon, hooks answer in ~2 ms.</p>
   </section>
 
