@@ -24,19 +24,17 @@ $ curl -H "Authorization: Bearer {{lock:GITHUB_TOKEN}}" api.github.com/user
 
 ## Install
 
-**macOS · Linux · WSL**
-
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dip497/hivelock/main/install.sh | sh
 ```
 
-**Windows** *(cmd or PowerShell)*
+Windows PowerShell or cmd:
 
 ```bat
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/dip497/hivelock/main/install.ps1 | iex"
 ```
 
-*No Rust needed.* The installer fetches the binary for your machine, verifies its checksum, and asks which agents to protect — all ticked by default. You can also take a binary from [Releases](https://github.com/dip497/hivelock/releases), or build it with `cargo install --git https://github.com/dip497/hivelock`.
+Picks the right binary for your machine, checks it, and asks which agents to protect. Or take one from [Releases](https://github.com/dip497/hivelock/releases).
 
 ## Use
 
