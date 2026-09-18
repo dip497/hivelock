@@ -75,17 +75,34 @@ code,kbd{font-family:var(--mono);font-size:.88em}
 .nav a.plain{color:var(--body);font-size:14.5px}
 
 /* hero */
-.hero{padding:74px 0 20px}
+.hero{padding:74px 0 40px;min-height:420px}
 .hero p.lede{font-size:clamp(17px,2.2vw,20px);color:var(--body);max-width:44ch;margin-top:14px}
-.cmds{display:grid;gap:10px;margin:26px 0 8px;max-width:760px}
-.cmd{display:flex;align-items:center;gap:10px;background:var(--sunk);border:1px solid var(--line);
-  border-radius:var(--r);padding:11px 12px;font-family:var(--mono);font-size:13px;color:var(--ink);overflow:hidden}
-.cmd span{overflow-x:auto;white-space:nowrap;scrollbar-width:none}
-.cmd span::-webkit-scrollbar{display:none}
-.cmd .os{color:var(--muted);flex:none;border-right:1px solid var(--line);padding-right:10px}
-.cmd button{margin-left:auto;flex:none;font-family:var(--mono);font-size:11.5px;color:var(--muted);
-  background:transparent;border:1px solid var(--line);border-radius:5px;padding:3px 9px;cursor:pointer}
-.cmd button:hover{color:var(--ink);border-color:var(--muted)}
+.install{margin:26px 0 0;max-width:680px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunk);overflow:hidden}
+.tabs{display:flex;align-items:center;gap:2px;padding:5px 6px 0;border-bottom:1px solid var(--line)}
+.tabs button{font:500 12px var(--mono);color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;
+  padding:6px 10px 8px;cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs .copy{margin-left:auto;border:1px solid var(--line);border-radius:5px;padding:3px 9px;margin-bottom:5px}
+.tabs .copy:hover{color:var(--ink);border-color:var(--muted)}
+#cmd{display:block;padding:12px 14px;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow-x:auto;scrollbar-width:thin}
+
+/* classical plates: the family's marble photographs, faded into the page edge */
+.plate{position:relative}
+.plate>*{position:relative;z-index:1}
+.plate::before{content:"";position:absolute;z-index:0;top:0;bottom:0;right:-24px;pointer-events:none;
+  width:var(--plate-w,min(24vw,340px));opacity:var(--plate-o,.22);
+  background:var(--plate-art) no-repeat;background-size:contain;background-position:var(--plate-pos,right center);
+  /* the photo masks itself: its black studio background turns transparent on any page colour */
+  -webkit-mask-image:var(--plate-art),linear-gradient(100deg,transparent 6%,#000 50%),linear-gradient(#000 60%,transparent 98%);
+  mask-image:var(--plate-art),linear-gradient(100deg,transparent 6%,#000 50%),linear-gradient(#000 60%,transparent 98%);
+  mask-mode:luminance,alpha,alpha;-webkit-mask-source-type:luminance,alpha,alpha;
+  -webkit-mask-size:contain,100% 100%,100% 100%;mask-size:contain,100% 100%,100% 100%;
+  -webkit-mask-position:var(--plate-pos,right center),0 0,0 0;mask-position:var(--plate-pos,right center),0 0,0 0;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-composite:source-in,source-in;mask-composite:intersect,intersect}
+.hero.plate{--plate-art:url(shots/marble.webp);--plate-w:min(42vw,520px);--plate-o:.62;--plate-pos:right top}
+@media (prefers-color-scheme:light){.plate::before{opacity:calc(var(--plate-o,.22)*.7);filter:invert(1) contrast(.9)}}
+@media (max-width:1000px){.plate::before{display:none}}
 
 /* meander: the family's greek key, one hairline high */
 .meander{display:block;height:12px;margin:56px auto;width:min(260px,44%);color:var(--line);
@@ -151,14 +168,10 @@ footer .spacer{flex:1}
   .two,.lists{grid-template-columns:1fr}
   .hero{padding:48px 0 12px}
   .meander{margin:40px auto}
-  /* the install line is the point of the page: wrap it rather than clip it */
-  .cmd{flex-wrap:wrap;align-items:flex-start;font-size:12px;line-height:1.7}
-  .cmd .os{border-right:0;border-bottom:1px solid var(--line);padding:0 0 6px;width:100%;font-size:11px}
-  .cmd span{white-space:pre-wrap;word-break:break-all;overflow:visible}
-  .cmd button{margin:6px 0 0 auto}
+  #cmd{white-space:pre-wrap;word-break:break-all}
 }
 @media (prefers-reduced-motion:no-preference){
-  .cmd button{transition:color .15s ease,border-color .15s ease}
+  .tabs button{transition:color .15s ease,border-color .15s ease}
 }
 </style>
 </head>
@@ -178,13 +191,17 @@ footer .spacer{flex:1}
 
 <main class="wrap">
 
-  <section class="hero">
+  <section class="hero plate">
     <h1>Your coding agent<br />doesn't need your keys.</h1>
     <p class="lede">It only needs their names. hivelock keeps the values on your machine — encrypted, injected only when a command actually runs.</p>
 
-    <div class="cmds">
-      <div class="cmd"><span class="os">macOS · Linux</span><span id="c1">curl -fsSL https://raw.githubusercontent.com/dip497/hivelock/main/install.sh | sh</span><button data-copy="c1">copy</button></div>
-      <div class="cmd"><span class="os">Windows</span><span id="c2">powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/dip497/hivelock/main/install.ps1 | iex"</span><button data-copy="c2">copy</button></div>
+    <div class="install">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-os="unix">macOS · Linux</button>
+        <button role="tab" aria-selected="false" data-os="win">Windows</button>
+        <button class="copy" type="button">copy</button>
+      </div>
+      <code id="cmd" data-unix="curl -fsSL https://raw.githubusercontent.com/dip497/hivelock/main/install.sh | sh" data-win="irm https://raw.githubusercontent.com/dip497/hivelock/main/install.ps1 | iex">curl -fsSL https://raw.githubusercontent.com/dip497/hivelock/main/install.sh | sh</code>
     </div>
   </section>
 
@@ -199,13 +216,13 @@ footer .spacer{flex:1}
           <rect class="d-box" x="8" y="20" width="92" height="34" rx="8"/>
           <text class="d-lbl" x="54" y="41" text-anchor="middle">you</text>
           <path class="d-arrow" d="M104 37 H150" marker-end="url(#a1)"/>
-          <rect class="d-leak" x="106" y="6" width="44" height="15" rx="4" opacity=".25"/>
-          <text class="d-mono d-leak" x="128" y="17" text-anchor="middle">sk_live…</text>
+          <rect class="d-leak" x="92" y="0" width="70" height="17" rx="4" opacity=".22"/>
+          <text class="d-mono d-leak" x="127" y="13" text-anchor="middle">sk_live…</text>
           <rect class="d-box" x="154" y="20" width="92" height="34" rx="8"/>
           <text class="d-lbl" x="200" y="41" text-anchor="middle">agent</text>
           <path class="d-arrow" d="M250 37 H296" marker-end="url(#a1)"/>
-          <rect class="d-leak" x="252" y="6" width="44" height="15" rx="4" opacity=".25"/>
-          <text class="d-mono d-leak" x="274" y="17" text-anchor="middle">sk_live…</text>
+          <rect class="d-leak" x="238" y="0" width="70" height="17" rx="4" opacity=".22"/>
+          <text class="d-mono d-leak" x="273" y="13" text-anchor="middle">sk_live…</text>
           <rect class="d-box" x="300" y="20" width="92" height="34" rx="8"/>
           <text class="d-lbl" x="346" y="41" text-anchor="middle">provider</text>
           <path class="d-arrow" d="M200 58 V86" marker-end="url(#a1)"/>
@@ -229,8 +246,8 @@ footer .spacer{flex:1}
           <rect class="d-box" x="154" y="20" width="92" height="34" rx="8" style="stroke:var(--accent)"/>
           <text class="d-lbl" x="200" y="41" text-anchor="middle">hivelock</text>
           <path class="d-arrow" d="M250 37 H296" marker-end="url(#a2)"/>
-          <rect class="d-safe" x="248" y="6" width="52" height="15" rx="4" opacity=".22"/>
-          <text class="d-mono d-safe" x="274" y="17" text-anchor="middle">{{lock:…}}</text>
+          <rect class="d-safe" x="228" y="0" width="90" height="17" rx="4" opacity=".2"/>
+          <text class="d-mono d-safe" x="273" y="13" text-anchor="middle">{{lock:…}}</text>
           <rect class="d-box" x="300" y="20" width="92" height="34" rx="8"/>
           <text class="d-lbl" x="346" y="41" text-anchor="middle">agent</text>
           <path class="d-arrow" d="M200 58 V86" marker-end="url(#a2)"/>
@@ -249,7 +266,7 @@ footer .spacer{flex:1}
 
   <div class="meander" role="presentation"></div>
 
-  <section>
+  <section id="where">
     <p class="eyebrow">where it sits</p>
     <div class="cards">
       <div class="card">
@@ -315,7 +332,7 @@ footer .spacer{flex:1}
 
   <div class="meander" role="presentation"></div>
 
-  <section>
+  <section id="limits">
     <p class="eyebrow">honest limits</p>
     <div class="lists">
       <ul class="keeps">
@@ -364,13 +381,17 @@ hivelock doctor</pre>
 </main>
 
 <script>
-document.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(document.getElementById(b.dataset.copy).textContent);
-    b.textContent = "copied";
-    setTimeout(() => (b.textContent = "copy"), 1400);
-  } catch { b.textContent = "select it"; }
+const cmd = document.getElementById("cmd");
+document.querySelectorAll("[data-os]").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll("[data-os]").forEach(o => o.setAttribute("aria-selected", o === t));
+  cmd.textContent = cmd.dataset[t.dataset.os];
 }));
+if (/Win/.test(navigator.platform)) document.querySelector('[data-os="win"]').click();
+document.querySelector(".copy").addEventListener("click", async e => {
+  try { await navigator.clipboard.writeText(cmd.textContent); e.target.textContent = "copied"; }
+  catch { e.target.textContent = "select it"; }
+  setTimeout(() => (e.target.textContent = "copy"), 1400);
+});
 </script>
 </body>
 </html>
