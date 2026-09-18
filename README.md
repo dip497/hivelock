@@ -74,8 +74,6 @@ Works with **Claude Code · Codex · Copilot CLI · Gemini CLI · Cursor · Qwen
 
 ---
 
-**[hivelock.pages →](https://dip497.github.io/hivelock/)**
-
 *It is not a sandbox.* Read [what it does and doesn't protect](docs/security.md) — then [usage](docs/usage.md) and [agents](docs/agents.md).
 
 MIT
