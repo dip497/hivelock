@@ -44,4 +44,4 @@ Manual testing: always set `HIVELOCK_HOME=<scratch dir>` and `HIVELOCK_NO_CLIPBO
 
 ## Release
 
-Bump `version` in `Cargo.toml`, build to refresh `Cargo.lock`, commit, wait for CI to pass, then `git tag -a vX.Y.Z` and push the tag. `release.yml` builds 5 targets, publishes with SHA256SUMS, then `install.yml` verifies `install.sh` / `install.ps1` on Linux, macOS and Windows (PowerShell, cmd, Git Bash). Commits use the repo-local noreply identity (`dip497`).
+Run `scripts/release.sh` on a clean, synced `main`. It sets the calendar version `YYYY.M.N` (the Nth release of that month, from 0) in `Cargo.toml`, refreshes `Cargo.lock`, commits and pushes, waits for CI, then pushes the `vYYYY.M.N` tag. `--dry-run` prints the version and stops. Releases up to v0.0.3 used semver. `release.yml` builds 5 targets, publishes with SHA256SUMS, then `install.yml` verifies `install.sh` / `install.ps1` on Linux, macOS and Windows (PowerShell, cmd, Git Bash). Commits use the repo-local noreply identity (`dip497`).
