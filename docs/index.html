@@ -77,30 +77,26 @@ code,kbd{font-family:var(--mono);font-size:.88em}
 /* hero */
 .hero{padding:74px 0 40px;min-height:420px}
 .hero p.lede{font-size:clamp(17px,2.2vw,20px);color:var(--body);max-width:44ch;margin-top:14px}
-.install{margin:26px 0 0;max-width:680px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunk);overflow:hidden}
+.install{margin:26px 0 0;max-width:640px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunk);overflow:hidden}
 .tabs{display:flex;align-items:center;gap:2px;padding:5px 6px 0;border-bottom:1px solid var(--line)}
 .tabs button{font:500 12px var(--mono);color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;
   padding:6px 10px 8px;cursor:pointer}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .tabs .copy{margin-left:auto;border:1px solid var(--line);border-radius:5px;padding:3px 9px;margin-bottom:5px}
 .tabs .copy:hover{color:var(--ink);border-color:var(--muted)}
-#cmd{display:block;padding:12px 14px;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow-x:auto;scrollbar-width:thin}
+#cmd{display:block;padding:12px 14px;font-size:12px;color:var(--ink);white-space:nowrap;overflow-x:auto;scrollbar-width:thin}
 
 /* classical plates: the family's marble photographs, faded into the page edge */
 .plate{position:relative}
 .plate>*{position:relative;z-index:1}
-.plate::before{content:"";position:absolute;z-index:0;top:0;bottom:0;right:-24px;pointer-events:none;
+.plate::before{content:"";position:absolute;z-index:0;top:0;bottom:0;right:-48px;pointer-events:none;
   width:var(--plate-w,min(24vw,340px));opacity:var(--plate-o,.22);
   background:var(--plate-art) no-repeat;background-size:contain;background-position:var(--plate-pos,right center);
-  /* the photo masks itself: its black studio background turns transparent on any page colour */
-  -webkit-mask-image:var(--plate-art),linear-gradient(100deg,transparent 6%,#000 50%),linear-gradient(#000 60%,transparent 98%);
-  mask-image:var(--plate-art),linear-gradient(100deg,transparent 6%,#000 50%),linear-gradient(#000 60%,transparent 98%);
-  mask-mode:luminance,alpha,alpha;-webkit-mask-source-type:luminance,alpha,alpha;
-  -webkit-mask-size:contain,100% 100%,100% 100%;mask-size:contain,100% 100%,100% 100%;
-  -webkit-mask-position:var(--plate-pos,right center),0 0,0 0;mask-position:var(--plate-pos,right center),0 0,0 0;
-  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
-  -webkit-mask-composite:source-in,source-in;mask-composite:intersect,intersect}
-.hero.plate{--plate-art:url(shots/marble.webp);--plate-w:min(42vw,520px);--plate-o:.62;--plate-pos:right top}
+  /* the cut-out already has a transparent background; the mask only softens its edges into the page */
+  -webkit-mask-image:linear-gradient(100deg,transparent 2%,#000 40%),linear-gradient(#000 72%,transparent 100%);
+  mask-image:linear-gradient(100deg,transparent 2%,#000 40%),linear-gradient(#000 72%,transparent 100%);
+  -webkit-mask-composite:source-in;mask-composite:intersect}
+.hero.plate{--plate-art:url(shots/harpocrates.webp);--plate-w:min(36vw,420px);--plate-o:.5;--plate-pos:right center}
 @media (prefers-color-scheme:light){.plate::before{opacity:calc(var(--plate-o,.22)*.7);filter:invert(1) contrast(.9)}}
 @media (max-width:1000px){.plate::before{display:none}}
 
@@ -163,6 +159,7 @@ pre .c{color:var(--muted)}
 footer{margin:70px 0 50px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;
   display:flex;gap:16px;flex-wrap:wrap;align-items:center}
 footer .spacer{flex:1}
+footer .credit{flex-basis:100%;font-size:12px}
 
 @media (max-width:720px){
   .two,.lists{grid-template-columns:1fr}
@@ -377,6 +374,7 @@ hivelock doctor</pre>
     <a href="agents.md">Agents</a>
     <span class="spacer"></span>
     <span>part of the hive — <a href="https://hivemind.griiken.com/">hivemind</a></span>
+    <span class="credit">Harpocrates, god of secrets: photo <a href="https://commons.wikimedia.org/wiki/File:Statue_of_a_boy_restored_as_Harpocrates_(Torlonia_MT_73)_01.jpg">Mark Landon</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, cropped and background removed</span>
   </footer>
 </main>
 
